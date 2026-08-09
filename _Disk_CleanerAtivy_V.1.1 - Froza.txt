@@ -1,0 +1,293 @@
+cd\ & 
+
+rem ==========================================================================================================
+
+FOR /F "tokens=1-6 delims=/ " %%g in ('date/t') do SET DDMMAAAA=%%g-%%h-%%i
+FOR /F "tokens=1,2 delims=: " %%j in ('time/t') do SET HHMM=%%j-%%k
+
+rem ==========================================================================================================
+
+rem Verifica se o servidor e um W2k8. Se sim, instala o patch para realizar a limpeza da pasta winsxs
+
+ver | findstr /i "6\.1\." > nul
+
+IF %ERRORLEVEL% EQU 0 (
+ wusa "\\atvdcinfra01\NETLOGON\Windows6.1-KB2852386-v2-x64.msu" /quiet /norestart
+ if not exist %systemroot%\System32\cleanmgr.exe (
+  copy C:\Windows\winsxs\amd64_microsoft-windows-cleanmgr_31bf3856ad364e35_6.1.7600.16385_none_c9392808773cd7da\cleanmgr.exe %systemroot%\System32 /y
+  copy C:\Windows\winsxs\amd64_microsoft-windows-cleanmgr.resources_31bf3856ad364e35_6.1.7600.16385_en-us_b9cb6194b257cc63\cleanmgr.exe.mui %systemroot%\System32\en-US /y
+ )
+ )
+
+rem ==========================================================================================================
+
+md %SystemDrive%\Suporte > nul
+
+Del c:\Suporte\*.log /q
+
+ECHO Antes > c:\Suporte\clear_%DDMMAAAA%_%HHMM%.log
+for /f "tokens=3 delims= " %%a in ('dir /-c C: ^| find "bytes free"') do @echo %%a bytes >> c:\Suporte\clear_%DDMMAAAA%_%HHMM%.log
+
+rem ==========================================================================================================
+
+rem Limpa Pasta winsxs
+
+md C:\disk_cleanup
+
+set tmp=disk_cleanup
+
+dism /online /cleanup-image /spsuperseded
+Takeown /f %windir%\winsxs\ManifestCache\*
+Icacls %windir%\winsxs\ManifestCache\* /GRANT administrators:F
+Del /q %windir%\winsxs\ManifestCache\*
+
+
+rem ==========================================================================================================
+
+rem Arquivos Temporarios
+
+rd %SystemRoot%\temp\ /s /q
+rd %SystemRoot%\tmp\ /s /q
+
+md %SystemRoot%\temp
+md %SystemRoot%\tmp
+
+cacls %SystemRoot%\temp /e /g system:f administrators:f BUILTIN\IIS_IUSRS:F "Authenticated Users":r /t
+cacls %SystemRoot%\tmp /e /g system:f administrators:f BUILTIN\IIS_IUSRS:F "Authenticated Users":r /t
+
+forfiles /P %SystemRoot%\ServiceProfiles\LocalService\AppData\Local /M FontCache* /D -30 /C "cmd /c del @path"
+
+compact /c /s /i "%SystemRoot%\ServiceProfiles\LocalService\AppData\Local\*.*"
+
+compact /c /s /i "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\SetupCache\*.*"
+
+rd %SystemRoot%\ServiceProfiles\LocalService\AppData\Local /s /q
+
+rd /q /s %WINDIR%\Installer\$PatchCache$
+
+rd /q /s %WINDIR%\system32\Ccm\Inventory\Temp
+
+del C:\edgesightinstall.log /q
+
+rem ==========================================================================================================
+
+rem Compacta arquivos de instalação
+
+::del C:\Windows\Installer\*.* /s /q
+compact /c /i /s C:\Windows\Installer\*.*
+
+del C:\Windows\LiveKernelReports\*.* /s /q
+
+rem ==========================================================================================================
+
+rem hotfixes uninstall
+
+for /f %%a in ('dir %SystemRoot%\$* /b /ah') do attrib -r -h -s -a /S /D %SystemRoot%\%%a
+for /f %%a in ('dir %SystemRoot%\$* /b') do rd /q /s %SystemRoot%\%%a
+
+rem ==========================================================================================================
+
+rem Apaga Logs SAP 
+rd /s /q "C:\ProgramData\SAP\SAP Business One\Log\SAP Business One\"
+
+rem Apaga Teams
+taskkill /f /im "Teams.exe"
+::taskkill /f /im "Anydesk.exe"
+::wmic product where "name like 'AnyDesk%%'" call uninstall /nointeractive
+::wmic product where "name like 'Microsoft Teams%%'" call uninstall /nointeractive
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Microsoft\Teams\" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Microsoft\TeamsMeetingAddin\" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do del "%SystemDrive%\Users\%%i\Desktop\Microsoft Teams.lnk" /s /q
+
+
+rem Temporario Documents and Settings / Temporary Internet Files
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\\Microsoft\Terminal Server Client\Cache" /s /q
+
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Microsoft\Windows\WER\ReportQueue" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Microsoft\Windows\WER\ReportArchive" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Temp\" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\USers\%%i\AppData\Local\Microsoft\Windows\Temporary Internet Files\" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do del "%SystemDrive%\Users\%%i\AppData\Local\Microsoft\Windows\WindowsUpdate.log" /q
+
+
+FOR /F %%i in ('dir "%SystemDrive%\Documents and Settings\" /b') do rd "%SystemDrive%\Documents and Settings\%%i\Local Settings\Temp\" /s /q
+FOR /F %%i in ('dir "%SystemDrive%\Documents and Settings\" /b') do rd "%SystemDrive%\Documents and Settings\%%i\Local Settings\Temporary Internet Files\" /s /q
+
+rem ==========================================================================================================
+
+rem Temporario Chrome
+
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Google\" /s /q
+for /f %%a in ('dir "%SystemDrive%\Users\" /AD /b') do del "%SystemDrive%\Users\%%a\AppData\Local\Google\Chrome\User Data\Default\Cache\*" /f /q
+for /f %%a in ('dir "%SystemDrive%\Users\" /AD /b') do del "%SystemDrive%\Users\%%a\AppData\Local\Google\Chrome\User Data\Default\ChromeDWriteFontCache" /f /q
+
+for /f %%a in ('dir "%SystemDrive%\Documents and Settings\" /AD /b') do del "%SystemDrive%\Documents and Settings\%%a\AppData\Local\Google\Chrome\User Data\Default\Cache\*" /f /q
+for /f %%a in ('dir "%SystemDrive%\Documents and Settings\" /AD /b') do del "%SystemDrive%\Documents and Settings\%%a\AppData\Local\Google\Chrome\User Data\Default\ChromeDWriteFontCache" /f /q
+
+rem ==========================================================================================================
+
+rem Compacta Histório Firefox
+
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Mozilla\Firefox\" /s /q
+for /f %%a in ('dir "%SystemDrive%\Users\" /AD /b') do compact /c /i "%SystemDrive%\Users\%%a\AppData\Roaming\Mozilla\Firefox\Profiles\bonfa\*.sqlite"
+for /f %%a in ('dir "%SystemDrive%\Documents and Settings\" /AD /b') do compact /c /i "%SystemDrive%\Documents and Settings\%%a\AppData\Roaming\Mozilla\Firefox\Profiles\bonfa\*.sqlite"
+
+rem ==========================================================================================================
+
+rem Compacta Log Dr. Watson
+for /f %%a in ('dir "%SystemDrive%\Documents and Settings\" /AD /b') do compact /c /i "%SystemDrive%\Documents and Settings\%%a\Local Settings\Application Data\Microsoft\Dr Watson\drwtsn32.log"
+
+rem ==========================================================================================================
+
+rem Limpeza da lixeira
+
+del "%SystemDrive%\Windows\SoftwareDistribution\Download\*" /f /q
+for /f %%a in ('dir "%SystemDrive%\Windows\SoftwareDistribution\Download\" /AD /b') do del "%SystemDrive%\Windows\SoftwareDistribution\Download\*" /f /q
+rd %SystemDrive%\RECYCLER /s /q
+
+rd /q /s $Recycle.Bin
+
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do DEL "%SystemDrive%\Users\%%i\AppData\Local\CrashDumps\*.*" /s /q
+
+rem ==========================================================================================================
+
+rem Limpeza dos temporários do Microsoft Antimalware
+
+del "C:\ProgramData\Microsoft\Microsoft Antimalware\Scans\History\Results\Resource\*.*" /q
+del "C:\Documents and Settings\All Users\Application Data\Microsoft\Microsoft Antimalware\Scans\History\Results\Resource\*.*" /q
+del "C:\Documents and Settings\All Users\Application Data\Microsoft\Microsoft Antimalware\Scans\History\Results\Quick\*.*" /q
+del "C:\Documents and Settings\All Users\Application Data\Microsoft\Microsoft Antimalware\Scans\History\Results\System\*.*" /q
+del "C:\Documents and Settings\All Users\Dados de aplicativos\Microsoft\Microsoft Antimalware\Scans\History\Results\Resource\*.*" /q
+del "C:\Documents and Settings\All Users\Dados de aplicativos\Microsoft\Microsoft Antimalware\Scans\History\Results\Quick\*.*" /q
+del "C:\Users\All Users\Microsoft\Microsoft Antimalware\Scans\History\Results\Resource\*.*" /q
+del "C:\ProgramData\Microsoft\Microsoft Antimalware\Support\*.*" /q
+
+rem ==========================================================================================================
+
+rem Limpa e compacta a pasta C:\Windows\Logs\Cbs
+
+taskkill /F /IM TrustedInstaller.exe
+del C:\Windows\Logs\Cbs\*.* /q
+compact /c /s /i "C:\Windows\Logs\Cbs"
+net start TrustedInstaller
+
+rem ==========================================================================================================
+
+rem Compacta a arquivo de cache do IE
+
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "%SystemDrive%\Users\%%i\AppData\Local\Microsoft\Windows\WebCache" /s /q
+::for /f %%a in ('dir "%SystemDrive%\Users\" /AD /b') do compact /c /s /i "C:\Users\%%a\AppData\Local\Microsoft\Windows\WebCache\WebCacheV01.dat"
+
+rem ==========================================================================================================
+
+rem Compacta Temp
+
+compact /c /s /i %SystemDrive%\temp\*.*
+compact /c /s /i %SystemRoot%\temp\*.*
+compact /c /s /i %SystemDrive%\tmp\*.*
+compact /c /s /i %SystemRoot%\tmp\*.*
+
+rem ==========================================================================================================
+
+rem OLD Dump Files
+
+ROBOCOPY %Windir%\ *.dmp %Windir%\dump_temp\ /mov /minage:7
+
+ROBOCOPY %Windir%\Minidump\ %Windir%\dump_temp\ /mov /minage:7
+
+rd %Windir%\dump_temp\ /s /q
+
+rem ==========================================================================================================
+
+rem WSUS temp
+
+ROBOCOPY %Windir%\SoftwareDistribution\download\ %Windir%\SoftwareDistribution\download_temp\ /move /minage:15
+
+rd %Windir%\SoftwareDistribution\download_temp\ /s /q
+
+rem ==========================================================================================================
+
+rem Run Windows DiskcleanUP
+
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Active Setup Temp Folders" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Downloaded Program Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Internet Cache Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Memory Dump Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Old ChkDsk Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Previous Installations" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Recycle Bin" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Service Pack Cleanup" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Setup Log Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\System error memory dump files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\System error minidump files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Temporary Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Temporary Setup Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Thumbnail Cache" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+ver | findstr /i "6\.1\." > nul
+IF %ERRORLEVEL% EQU 0 reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Update Cleanup" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Upgrade Discarded Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Windows Error Reporting Archive Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Windows Error Reporting Queue Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Windows Error Reporting System Archive Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Windows Error Reporting System Queue Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+reg add "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\Windows Upgrade Log Files" /v StateFlags0001 /t REG_DWORD /d 00000002 /f
+
+cleanmgr /sagerun:1
+
+rem ==========================================================================================================
+
+rem Remove os arquivos orfãos de instalação do Windows que estão em cache
+
+copy \\atvdcinfra01\NETLOGON\msizap.exe %WINDIR%\system32\ /y
+
+msizap !G
+
+rem ========================================================================================================== 
+
+rem Logs %windir%
+
+del %windir%\kb*.log /q
+del %windir%\setup*.log /q
+del %windir%\setup*.old /q
+del %windir%\setuplog.txt /q
+del %windir%\winnt32.log /q
+del %windir%\set*.tmp /q
+
+
+rem ==========================================================================================================
+
+if exist "C:\inetpub\logs\LogFiles" (compact /c /i /s:C:\inetpub\logs\LogFiles)
+
+rem ==========================================================================================================
+
+ECHO Depois >> c:\Suporte\clear_%DDMMAAAA%_%HHMM%.log
+for /f "tokens=3 delims= " %%a in ('dir /-c C: ^| find "bytes free"') do @echo %%a bytes >> c:\Suporte\clear_%DDMMAAAA%_%HHMM%.log
+
+rem ==========================================================================================================
+
+:remove_disk_cleanup
+
+if exist C:\disk_cleanup (
+	rd /q /s C:\disk_cleanup\
+	echo Arquivo deletado com sucesso...
+	GOTO remove_disk_cleanup
+) else (
+	echo O arquivo nao existe...
+	exit
+)
+
+rem ==========================================================================================================
+
+rem Remove os arquivos de LOG do sap com mais de 5 dias
+
+rem ==========================================================================================================
+
+forfiles /S /P "C:\ProgramData\SAP\SAP Business One\Log\SAP Business One" /M *.csv /D -30 /C "cmd /c del @path"
+rem ==========================================================================================================
+
+dism /online /cleanup-image /startcomponentcleanup
+dism /online /cleanup-image /startcomponentcleanup /resetbase
+echo Apagar LOGs SAP
+FOR /F %%i in ('dir "%SystemDrive%\Users\" /b') do rd "C:\ProgramData\SAP\SAP Business One\Log\SAP Business One\" /s /q
+
+rem ==========================================================================================================
