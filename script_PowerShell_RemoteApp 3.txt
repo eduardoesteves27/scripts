@@ -1,0 +1,16 @@
+#Com Broker
+Set-RDSessionCollectionConfiguration –CollectionName "SAP B1" -CustomRdpProperty "server port:i:61089 `n use redirection server name:i:1 `n gatewayusagemethod:i:1 alternate full address:s:neocantracloud.com `n drivestoredirect:s:*"
+
+#Sem broker
+Set-RDSessionCollectionConfiguration –CollectionName "SAP B1" -CustomRdpProperty "server port:i:64660 `n use redirection server name:i:1 `n alternate full address:s:b1.ativy.com `n drivestoredirect:s:*"
+
+
+#Publicar app no remoteapp = Fonte = https://docs.microsoft.com/en-us/powershell/module/remotedesktop/new-rdremoteapp?view=windowsserver2016-ps
+New-RDRemoteApp -CollectionName "Session Collection" -DisplayName "Notepad" -FilePath "C:\Windows\System32\Notepad.exe"
+
+#Mudar ícone do Logoff
+Get-RDRemoteApp -alias logoff | Set-RDRemoteApp -IconPath "C:\Windows\system32\imageres.dll" -IconIndex 93
+
+
+#Consigaz
+Set-RDSessionCollectionConfiguration -CollectionName "TOTVS" -CustomRdpProperty "server port:i:61089 `n use redirection server name:i:1 `n alternate full address:s:CGZ-WRDS-BRK01.consigaz.net `n drivestoredirect:s:*"
