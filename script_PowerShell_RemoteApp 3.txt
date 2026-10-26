@@ -1,8 +1,16 @@
 #Com Broker
 Set-RDSessionCollectionConfiguration –CollectionName "SAP B1" -CustomRdpProperty "server port:i:61089 `n use redirection server name:i:1 `n gatewayusagemethod:i:1 alternate full address:s:neocantracloud.com `n drivestoredirect:s:*"
 
+quando tem vm broker (RDB) é sempre a porta 61089 e o alternate é o endereço do cliente 
+
+tipo, b1-clientexx.ativy.com 
+
+b1-cliente2.ativy.com 
+
 #Sem broker
 Set-RDSessionCollectionConfiguration –CollectionName "SAP B1" -CustomRdpProperty "server port:i:64660 `n use redirection server name:i:1 `n alternate full address:s:b1.ativy.com `n drivestoredirect:s:*"
+
+OBS: A porta do cliente sempre deve ser a porta RDP externa 
 
 # Trocar certificado
 \\172.25.3.243\iso$
