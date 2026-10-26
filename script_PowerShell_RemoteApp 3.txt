@@ -4,6 +4,9 @@ Set-RDSessionCollectionConfiguration –CollectionName "SAP B1" -CustomRdpProper
 #Sem broker
 Set-RDSessionCollectionConfiguration –CollectionName "SAP B1" -CustomRdpProperty "server port:i:64660 `n use redirection server name:i:1 `n alternate full address:s:b1.ativy.com `n drivestoredirect:s:*"
 
+# Trocar certificado
+\\172.25.3.243\iso$
+
 
 #Publicar app no remoteapp = Fonte = https://docs.microsoft.com/en-us/powershell/module/remotedesktop/new-rdremoteapp?view=windowsserver2016-ps
 New-RDRemoteApp -CollectionName "Session Collection" -DisplayName "Notepad" -FilePath "C:\Windows\System32\Notepad.exe"
